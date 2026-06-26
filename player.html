@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VOT Player</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #000; color: #fff; font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; }
+        #topbar { padding: 8px; display: flex; gap: 6px; background: #111; }
+        #urlInput { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #333; background: #222; color: #fff; font-size: 13px; }
+        #loadBtn { padding: 10px 16px; border-radius: 8px; border: none; background: #2196F3; color: #fff; font-weight: bold; font-size: 16px; }
+        #videoWrap { flex: 1; display: flex; align-items: center; justify-content: center; background: #000; }
+        video { width: 100%; max-height: 100%; }
+        #hint { padding: 20px; text-align: center; color: #888; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div id="topbar">
+        <input type="url" id="urlInput" placeholder="Вставьте ссылку на MP4/WEBM...">
+        <button id="loadBtn">▶️</button>
+    </div>
+    <div id="videoWrap">
+        <div id="hint">Вставьте ссылку на видео выше и нажмите ▶️<br><br>VOT автоматически найдёт видео и предложит перевод</div>
+        <video id="video" controls playsinline style="display:none"></video>
+    </div>
+    <script>
+        const urlInput = document.getElementById('urlInput');
+        const loadBtn = document.getElementById('loadBtn');
+        const video = document.getElementById('video');
+        const hint = document.getElementById('hint');
+        
+        function loadVideo(url) {
+            video.src = url;
+            video.style.display = 'block';
+            hint.style.display = 'none';
+            video.play().catch(() => {});
+        }
+        
+        loadBtn.onclick = () => {
+            const url = urlInput.value.trim();
+            if (url) loadVideo(url);
+        };
+        
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loadBtn.click();
+        });
+    </script>
+</body>
+</html>
+
