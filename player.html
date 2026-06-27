@@ -1,50 +1,67 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VOT Player</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VOT External Player</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #000; color: #fff; font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; }
-        #topbar { padding: 8px; display: flex; gap: 6px; background: #111; }
-        #urlInput { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #333; background: #222; color: #fff; font-size: 13px; }
-        #loadBtn { padding: 10px 16px; border-radius: 8px; border: none; background: #2196F3; color: #fff; font-weight: bold; font-size: 16px; }
-        #videoWrap { flex: 1; display: flex; align-items: center; justify-content: center; background: #000; }
-        video { width: 100%; max-height: 100%; }
-        #hint { padding: 20px; text-align: center; color: #888; font-size: 14px; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: -apple-system, sans-serif; }
+        #container { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; }
+        #video-frame { flex: 1; width: 100%; border: none; background: #000; }
+        #info-panel { 
+            background: #1a1a1a; color: #fff; padding: 10px; font-size: 12px; 
+            display: flex; align-items: center; gap: 10px; min-height: 40px;
+        }
+        #url-display { 
+            flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+            color: #aaa; user-select: all; 
+        }
+        .copy-btn { 
+            background: #333; border: 1px solid #555; color: #fff; padding: 5px 10px; 
+            border-radius: 4px; cursor: pointer; font-size: 11px; 
+        }
+        .copy-btn:active { background: #555; }
     </style>
 </head>
 <body>
-    <div id="topbar">
-        <input type="url" id="urlInput" placeholder="Вставьте ссылку на MP4/WEBM...">
-        <button id="loadBtn">▶️</button>
+    <div id="container">
+        <!-- Фрейм с видео. VOT должен матчиться на этот домен, чтобы работать внутри -->
+        <iframe id="video-frame" allowfullscreen allow="autoplay; fullscreen; picture-in-picture"></iframe>
+        
+        <div id="info-panel">
+            <span style="color:#4CAF50; font-weight:bold;">SOURCE:</span>
+            <div id="url-display">Ожидание ссылки...</div>
+            <button class="copy-btn" onclick="copyUrl()">COPY</button>
+        </div>
     </div>
-    <div id="videoWrap">
-        <div id="hint">Вставьте ссылку на видео выше и нажмите ▶️<br><br>VOT автоматически найдёт видео и предложит перевод</div>
-        <video id="video" controls playsinline style="display:none"></video>
-    </div>
+
     <script>
-        const urlInput = document.getElementById('urlInput');
-        const loadBtn = document.getElementById('loadBtn');
-        const video = document.getElementById('video');
-        const hint = document.getElementById('hint');
-        
-        function loadVideo(url) {
-            video.src = url;
-            video.style.display = 'block';
-            hint.style.display = 'none';
-            video.play().catch(() => {});
+        function getParam(name) {
+            return new URLSearchParams(window.location.search).get(name);
         }
-        
-        loadBtn.onclick = () => {
-            const url = urlInput.value.trim();
-            if (url) loadVideo(url);
-        };
-        
-        urlInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') loadBtn.click();
-        });
+
+        const videoUrl = getParam('url');
+        const frame = document.getElementById('video-frame');
+        const urlDisplay = document.getElementById('url-display');
+
+        if (videoUrl) {
+            // Для прямых ссылок на mp4/webm создаем простой HTML внутри iframe
+            // Чтобы VOT мог зацепиться, мы можем либо грузить напрямую, либо обернуть
+            // Прямая загрузка mp4 в iframe обычно работает
+            frame.src = videoUrl;
+            urlDisplay.textContent = decodeURIComponent(videoUrl);
+        } else {
+            urlDisplay.textContent = "Ошибка: Не передан параметр ?url=";
+        }
+
+        function copyUrl() {
+            if (!videoUrl) return;
+            navigator.clipboard.writeText(decodeURIComponent(videoUrl)).then(() => {
+                const btn = document.querySelector('.copy-btn');
+                btn.textContent = 'COPIED!';
+                setTimeout(() => btn.textContent = 'COPY', 2000);
+            });
+        }
     </script>
 </body>
 </html>
