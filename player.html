@@ -6,62 +6,254 @@
     <title>VOT Player</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #000; color: #fff; font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        #video-container { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; background: #000; }
-        video { width: 100%; max-height: 100%; object-fit: contain; }
-        #info-panel { background: #1a1a1a; padding: 10px 14px; display: flex; align-items: center; gap: 8px; border-top: 1px solid #333; min-height: 48px; flex-shrink: 0; }
-        #url-display { flex: 1; font-size: 12px; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: all; word-break: break-all; }
-        .copy-btn { background: #333; border: 1px solid #555; color: #fff; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
-        .copy-btn:active { background: #555; }
-        #error-msg { color: #f44; font-size: 13px; text-align: center; padding: 20px; display: none; }
+        body {
+            background: #0a0a0a;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #input-bar {
+            background: #1a1a2e;
+            padding: 10px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            flex-shrink: 0;
+        }
+        #urlInput {
+            flex: 1;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            background: #2a2a3e;
+            color: #e0e0e0;
+            font-size: 13px;
+            font-family: "SF Mono", "SF Mono", Menlo, monospace;
+            outline: none;
+        }
+        #urlInput:focus { border-color: #4a9eff; }
+        #urlInput::placeholder { color: #666; }
+        #loadBtn {
+            padding: 10px 18px;
+            border-radius: 8px;
+            border: none;
+            background: #4a9eff;
+            color: #fff;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        #loadBtn:active { background: #3a8eef; }
+        #video-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            position: relative;
+            overflow: hidden;
+        }
+        #video-wrap {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        video {
+            width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        #placeholder {
+            color: #555;
+            text-align: center;
+            padding: 20px;
+        }
+        #placeholder .icon { font-size: 48px; margin-bottom: 12px; }
+        #placeholder .hint { color: #666; font-size: 13px; margin-top: 8px; }
+        #info-bar {
+            background: #1a1a2e;
+            padding: 8px 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-top: 1px solid #333;
+            flex-shrink: 0;
+            min-height: 44px;
+        }
+        #url-display {
+            flex: 1;
+            font-size: 11px;
+            color: #888;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: "SF Mono", Menlo, monospace;
+            user-select: all;
+        }
+        .action-btn {
+            background: #333;
+            border: 1px solid #444;
+            color: #ccc;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .action-btn:active { background: #555; }
+        #error-bar {
+            background: #3a1a1a;
+            padding: 10px 14px;
+            color: #ff6b6b;
+            font-size: 13px;
+            border-top: 1px solid #5a2a2a;
+            display: none;
+        }
     </style>
 </head>
 <body>
-    <div id="video-container">
-        <video id="video" controls playsinline webkit-playsinline></video>
-        <div id="error-msg"></div>
+    <div id="input-bar">
+        <input type="url" id="urlInput" placeholder="Вставьте ссылку на видео (.mp4, .webm, .m3u8)...">
+        <button id="loadBtn">▶ Загрузить</button>
     </div>
-    <div id="info-panel">
-        <span style="color:#4CAF50;font-weight:bold;font-size:12px;flex-shrink:0;">SRC:</span>
-        <div id="url-display">Ожидание...</div>
-        <button class="copy-btn" id="copyBtn">COPY</button>
+    <div id="video-area">
+        <div id="video-wrap">
+            <div id="placeholder">
+                <div class="icon">🎬</div>
+                <div>Вставьте ссылку на видео выше</div>
+                <div class="hint">Поддерживаются .mp4, .webm, .m3u8</div>
+            </div>
+        </div>
     </div>
+    <div id="info-bar">
+        <span style="color:#4a9eff; font-size:11px; flex-shrink:0;">SRC:</span>
+        <div id="url-display">Нет источника</div>
+        <button class="action-btn" id="copyBtn">📋 Копировать</button>
+        <button class="action-btn" id="openDirectBtn" style="display:none;">↗ Напрямую</button>
+    </div>
+    <div id="error-bar"></div>
+
     <script>
-        const params = new URLSearchParams(window.location.search);
-        const videoUrl = params.get('url');
-        const video = document.getElementById('video');
+        const urlInput = document.getElementById('urlInput');
+        const loadBtn = document.getElementById('loadBtn');
+        const videoWrap = document.getElementById('video-wrap');
+        const placeholder = document.getElementById('placeholder');
         const urlDisplay = document.getElementById('url-display');
         const copyBtn = document.getElementById('copyBtn');
-        const errorMsg = document.getElementById('error-msg');
+        const openDirectBtn = document.getElementById('openDirectBtn');
+        const errorBar = document.getElementById('error-bar');
 
-        if (videoUrl) {
-            const decodedUrl = decodeURIComponent(videoUrl);
-            video.src = decodedUrl;
-            urlDisplay.textContent = decodedUrl;
-            video.play().catch(() => {});
-            video.addEventListener('error', () => {
-                errorMsg.style.display = 'block';
-                errorMsg.textContent = 'Ошибка загрузки видео. Попробуйте скопировать ссылку и открыть напрямую.';
-            });
-        } else {
-            errorMsg.style.display = 'block';
-            errorMsg.textContent = 'Не передан параметр ?url=';
-            urlDisplay.textContent = 'Нет ссылки';
+        let currentUrl = '';
+
+        function showError(msg) {
+            errorBar.textContent = '⚠ ' + msg;
+            errorBar.style.display = 'block';
         }
 
+        function hideError() {
+            errorBar.style.display = 'none';
+        }
+
+        function loadVideo(url) {
+            if (!url) return;
+            hideError();
+            currentUrl = url;
+            urlDisplay.textContent = url;
+            openDirectBtn.style.display = 'block';
+
+            // Убираем placeholder
+            placeholder.style.display = 'none';
+
+            // Создаём video элемент
+            let video = document.getElementById('player-video');
+            if (video) video.remove();
+
+            video = document.createElement('video');
+            video.id = 'player-video';
+            video.controls = true;
+            video.playsInline = true;
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
+            video.controlsList = 'nodownload';
+
+            video.addEventListener('error', (e) => {
+                const err = video.error;
+                const messages = {
+                    1: 'Загрузка прервана',
+                    2: 'Ошибка сети',
+                    3: 'Ошибка декодирования',
+                    4: 'Формат не поддерживается'
+                };
+                showError(messages[err?.code] || 'Ошибка загрузки видео (код: ' + (err?.code || '?') + ')');
+            });
+
+            video.src = url;
+            videoWrap.appendChild(video);
+
+            // Попытка автовоспроизведения
+            video.play().catch(() => {
+                // Автовоспроизведение заблокировано — это нормально
+            });
+        }
+
+        function loadFromInput() {
+            const url = urlInput.value.trim();
+            if (!url) {
+                showError('Введите ссылку на видео');
+                return;
+            }
+            loadVideo(url);
+            // Обновляем URL в адресной строке
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set('url', url);
+            window.history.replaceState({}, '', newUrl);
+        }
+
+        loadBtn.addEventListener('click', loadFromInput);
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loadFromInput();
+        });
+
         copyBtn.addEventListener('click', () => {
-            const text = videoUrl ? decodeURIComponent(videoUrl) : '';
-            if (!text) return;
-            navigator.clipboard.writeText(text).then(() => {
-                copyBtn.textContent = 'COPIED!';
-                setTimeout(() => copyBtn.textContent = 'COPY', 2000);
+            if (!currentUrl) return;
+            navigator.clipboard.writeText(currentUrl).then(() => {
+                copyBtn.textContent = '✓ Скопировано';
+                setTimeout(() => copyBtn.textContent = '📋 Копировать', 1500);
             }).catch(() => {
+                // Fallback
                 urlDisplay.select?.();
                 document.execCommand?.('copy');
-                copyBtn.textContent = 'COPIED!';
-                setTimeout(() => copyBtn.textContent = 'COPY', 2000);
+                copyBtn.textContent = '✓ Скопировано';
+                setTimeout(() => copyBtn.textContent = '📋 Копировать', 1500);
             });
         });
+
+        openDirectBtn.addEventListener('click', () => {
+            if (currentUrl) window.open(currentUrl, '_blank');
+        });
+
+        // Загружаем URL из URL-параметра при загрузке страницы
+        const params = new URLSearchParams(window.location.search);
+        const paramUrl = params.get('url');
+        if (paramUrl) {
+            try {
+                const decoded = decodeURIComponent(paramUrl);
+                urlInput.value = decoded;
+                loadVideo(decoded);
+            } catch (e) {
+                // Пробуем без декодирования
+                urlInput.value = paramUrl;
+                loadVideo(paramUrl);
+            }
+        }
     </script>
 </body>
 </html>
