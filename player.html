@@ -2,18 +2,21 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>VOT Player</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         body {
             background: #0a0a0a;
             color: #e0e0e0;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro", sans-serif;
             height: 100vh;
+            height: 100dvh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
         }
         #input-bar {
             background: #1a1a2e;
@@ -32,23 +35,46 @@
             background: #2a2a3e;
             color: #e0e0e0;
             font-size: 13px;
-            font-family: "SF Mono", "SF Mono", Menlo, monospace;
+            font-family: "SF Mono", Menlo, monospace;
             outline: none;
+            min-width: 0;
         }
         #urlInput:focus { border-color: #4a9eff; }
         #urlInput::placeholder { color: #666; }
-        #loadBtn {
-            padding: 10px 18px;
+        .btn {
+            padding: 10px 14px;
             border-radius: 8px;
             border: none;
-            background: #4a9eff;
-            color: #fff;
             font-weight: 600;
-            font-size: 14px;
+            font-size: 13px;
             cursor: pointer;
             flex-shrink: 0;
+            white-space: nowrap;
         }
-        #loadBtn:active { background: #3a8eef; }
+        .btn-primary { background: #4a9eff; color: #fff; }
+        .btn-secondary { background: #333; border: 1px solid #444; color: #ccc; }
+        .btn:active { opacity: 0.7; }
+        #src-bar {
+            background: #141420;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid #333;
+            flex-shrink: 0;
+            min-height: 40px;
+        }
+        #url-display {
+            flex: 1;
+            font-size: 11px;
+            color: #888;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: "SF Mono", Menlo, monospace;
+            user-select: all;
+            min-width: 0;
+        }
         #video-area {
             flex: 1;
             display: flex;
@@ -57,6 +83,7 @@
             background: #000;
             position: relative;
             overflow: hidden;
+            min-height: 0;
         }
         #video-wrap {
             position: relative;
@@ -78,78 +105,59 @@
         }
         #placeholder .icon { font-size: 48px; margin-bottom: 12px; }
         #placeholder .hint { color: #666; font-size: 13px; margin-top: 8px; }
-        #info-bar {
-            background: #1a1a2e;
-            padding: 8px 14px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            border-top: 1px solid #333;
-            flex-shrink: 0;
-            min-height: 44px;
-        }
-        #url-display {
-            flex: 1;
-            font-size: 11px;
-            color: #888;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            font-family: "SF Mono", Menlo, monospace;
-            user-select: all;
-        }
-        .action-btn {
-            background: #333;
-            border: 1px solid #444;
-            color: #ccc;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 11px;
-            cursor: pointer;
-            flex-shrink: 0;
-        }
-        .action-btn:active { background: #555; }
         #error-bar {
             background: #3a1a1a;
             padding: 10px 14px;
             color: #ff6b6b;
             font-size: 13px;
-            border-top: 1px solid #5a2a2a;
+            border-bottom: 1px solid #5a2a2a;
+            display: none;
+        }
+        #extract-status {
+            color: #4a9eff;
+            font-size: 11px;
+            padding: 4px 12px;
+            background: #1a1a2e;
+            border-bottom: 1px solid #333;
             display: none;
         }
     </style>
 </head>
 <body>
     <div id="input-bar">
-        <input type="url" id="urlInput" placeholder="Вставьте ссылку на видео (.mp4, .webm, .m3u8)...">
-        <button id="loadBtn">▶ Загрузить</button>
+        <input type="url" id="urlInput" placeholder="URL видео или страницы с видео...">
+        <button class="btn btn-primary" id="loadBtn">▶</button>
+        <button class="btn btn-secondary" id="extractBtn" title="Извлечь из страницы">🔍</button>
     </div>
+    <div id="extract-status"></div>
+    <div id="src-bar">
+        <span style="color:#4a9eff; font-size:11px; flex-shrink:0;">SRC:</span>
+        <div id="url-display">Нет источника</div>
+        <button class="btn btn-secondary" id="copyBtn" style="padding:6px 10px;font-size:11px;">📋</button>
+        <button class="btn btn-secondary" id="openDirectBtn" style="padding:6px 10px;font-size:11px;display:none;">↗</button>
+    </div>
+    <div id="error-bar"></div>
     <div id="video-area">
         <div id="video-wrap">
             <div id="placeholder">
                 <div class="icon">🎬</div>
-                <div>Вставьте ссылку на видео выше</div>
-                <div class="hint">Поддерживаются .mp4, .webm, .m3u8</div>
+                <div>Вставьте ссылку на видео или страницу</div>
+                <div class="hint">.mp4, .webm, .m3u8 — или страница, откуда извлечь</div>
             </div>
         </div>
     </div>
-    <div id="info-bar">
-        <span style="color:#4a9eff; font-size:11px; flex-shrink:0;">SRC:</span>
-        <div id="url-display">Нет источника</div>
-        <button class="action-btn" id="copyBtn">📋 Копировать</button>
-        <button class="action-btn" id="openDirectBtn" style="display:none;">↗ Напрямую</button>
-    </div>
-    <div id="error-bar"></div>
 
     <script>
         const urlInput = document.getElementById('urlInput');
         const loadBtn = document.getElementById('loadBtn');
+        const extractBtn = document.getElementById('extractBtn');
         const videoWrap = document.getElementById('video-wrap');
         const placeholder = document.getElementById('placeholder');
         const urlDisplay = document.getElementById('url-display');
         const copyBtn = document.getElementById('copyBtn');
         const openDirectBtn = document.getElementById('openDirectBtn');
         const errorBar = document.getElementById('error-bar');
+        const extractStatus = document.getElementById('extract-status');
 
         let currentUrl = '';
 
@@ -157,22 +165,22 @@
             errorBar.textContent = '⚠ ' + msg;
             errorBar.style.display = 'block';
         }
-
-        function hideError() {
-            errorBar.style.display = 'none';
+        function hideError() { errorBar.style.display = 'none'; }
+        function showExtract(msg) {
+            extractStatus.textContent = msg;
+            extractStatus.style.display = 'block';
         }
+        function hideExtract() { extractStatus.style.display = 'none'; }
 
         function loadVideo(url) {
             if (!url) return;
             hideError();
+            hideExtract();
             currentUrl = url;
             urlDisplay.textContent = url;
             openDirectBtn.style.display = 'block';
-
-            // Убираем placeholder
             placeholder.style.display = 'none';
 
-            // Создаём video элемент
             let video = document.getElementById('player-video');
             if (video) video.remove();
 
@@ -184,55 +192,144 @@
             video.setAttribute('webkit-playsinline', '');
             video.controlsList = 'nodownload';
 
-            video.addEventListener('error', (e) => {
+            video.addEventListener('error', () => {
                 const err = video.error;
-                const messages = {
-                    1: 'Загрузка прервана',
-                    2: 'Ошибка сети',
-                    3: 'Ошибка декодирования',
-                    4: 'Формат не поддерживается'
-                };
-                showError(messages[err?.code] || 'Ошибка загрузки видео (код: ' + (err?.code || '?') + ')');
+                const messages = { 1: 'Загрузка прервана', 2: 'Ошибка сети', 3: 'Ошибка декодирования', 4: 'Формат не поддерживается' };
+                showError(messages[err?.code] || 'Ошибка загрузки (код: ' + (err?.code || '?') + ')');
             });
 
             video.src = url;
             videoWrap.appendChild(video);
-
-            // Попытка автовоспроизведения
-            video.play().catch(() => {
-                // Автовоспроизведение заблокировано — это нормально
-            });
+            video.play().catch(() => {});
         }
 
-        function loadFromInput() {
-            const url = urlInput.value.trim();
-            if (!url) {
-                showError('Введите ссылку на видео');
-                return;
+        async function extractFromPage(pageUrl) {
+            showExtract('🔍 Извлекаю видео со страницы...');
+            try {
+                // Пробуем загрузить через CORS-прокси, если не получится — напрямую
+                const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(pageUrl);
+                let response;
+                try {
+                    response = await fetch(proxyUrl);
+                } catch {
+                    response = await fetch(pageUrl);
+                }
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const html = await response.text();
+                
+                const found = [];
+                
+                // 1. og:video / og:video:url
+                const ogRegex = /<meta[^>]+property=["']og:video(?::url|:secure_url)?["'][^>]+content=["']([^"']+)["']/gi;
+                let match;
+                while ((match = ogRegex.exec(html)) !== null) {
+                    found.push(match[1]);
+                }
+                // Обратный вариант (content перед property)
+                const ogRegex2 = /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:video(?::url|:secure_url)?["']/gi;
+                while ((match = ogRegex2.exec(html)) !== null) {
+                    found.push(match[1]);
+                }
+                
+                // 2. JSON-LD contentUrl
+                const jsonLdRegex = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+                while ((match = jsonLdRegex.exec(html)) !== null) {
+                    try {
+                        const data = JSON.parse(match[1]);
+                        const extract = (obj) => {
+                            if (!obj || typeof obj !== 'object') return;
+                            if (obj.contentUrl) found.push(obj.contentUrl);
+                            if (obj.embedUrl) found.push(obj.embedUrl);
+                            if (Array.isArray(obj)) obj.forEach(extract);
+                            Object.values(obj).forEach(v => { if (typeof v === 'object') extract(v); });
+                        };
+                        extract(data);
+                    } catch {}
+                }
+                
+                // 3. Прямые ссылки на mp4/m3u8/webm в HTML/JS
+                const directRegex = /(https?:\/\/[^"'\s<>]+\.(mp4|m3u8|webm)(\?[^"'\s<>]*)?)/gi;
+                while ((match = directRegex.exec(html)) !== null) {
+                    found.push(match[1]);
+                }
+                
+                // 4. Twitter player:stream
+                const twRegex = /<meta[^>]+name=["']twitter:player:stream["'][^>]+content=["']([^"']+)["']/gi;
+                while ((match = twRegex.exec(html)) !== null) found.push(match[1]);
+                
+                // Уникализируем и фильтруем
+                const unique = [...new Set(found)].filter(u => u && !u.startsWith('data:') && u.length < 1000);
+                
+                if (unique.length === 0) {
+                    showExtract('❌ Видео не найдено на странице');
+                    setTimeout(hideExtract, 3000);
+                    return;
+                }
+                
+                // Показываем первую ссылку и даём выбор, если их несколько
+                if (unique.length === 1) {
+                    urlInput.value = unique[0];
+                    loadVideo(unique[0]);
+                    showExtract('✅ Найдено 1 видео');
+                } else {
+                    // Создаём выпадающий список
+                    showExtract('✅ Найдено ' + unique.length + ' видео. Выберите:');
+                    const select = document.createElement('select');
+                    select.style.cssText = 'margin:4px 12px;padding:6px;background:#2a2a3e;color:#fff;border:1px solid #444;border-radius:6px;width:calc(100% - 24px);font-size:12px;';
+                    unique.forEach((u, i) => {
+                        const opt = document.createElement('option');
+                        const ext = u.match(/\.([a-z0-9]+)(?:\?|$)/i)?.[1] || 'link';
+                        opt.value = u;
+                        opt.textContent = '#' + (i+1) + ' [' + ext.toUpperCase() + '] ' + (u.length > 70 ? u.substring(0, 67) + '...' : u);
+                        select.appendChild(opt);
+                    });
+                    select.onchange = () => {
+                        urlInput.value = select.value;
+                        loadVideo(select.value);
+                        select.remove();
+                        hideExtract();
+                    };
+                    extractStatus.parentElement.insertBefore(select, extractStatus.nextSibling);
+                }
+                setTimeout(hideExtract, 5000);
+            } catch (err) {
+                showExtract('❌ Ошибка: ' + err.message);
+                setTimeout(hideExtract, 4000);
             }
-            loadVideo(url);
-            // Обновляем URL в адресной строке
+        }
+
+        function handleLoad() {
+            const url = urlInput.value.trim();
+            if (!url) { showError('Введите ссылку'); return; }
+            
+            // Если это ссылка на сам видеофайл — грузим напрямую
+            if (/\.(mp4|webm|m3u8|m4v|mpd)(\?|$)/i.test(url)) {
+                loadVideo(url);
+            } else {
+                // Иначе пробуем извлечь
+                extractFromPage(url);
+            }
             const newUrl = new URL(window.location.href);
             newUrl.searchParams.set('url', url);
             window.history.replaceState({}, '', newUrl);
         }
 
-        loadBtn.addEventListener('click', loadFromInput);
-        urlInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') loadFromInput();
+        loadBtn.addEventListener('click', handleLoad);
+        extractBtn.addEventListener('click', () => {
+            const url = urlInput.value.trim();
+            if (!url) { showError('Введите URL страницы'); return; }
+            extractFromPage(url);
         });
+        urlInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleLoad(); });
 
         copyBtn.addEventListener('click', () => {
             if (!currentUrl) return;
             navigator.clipboard.writeText(currentUrl).then(() => {
-                copyBtn.textContent = '✓ Скопировано';
-                setTimeout(() => copyBtn.textContent = '📋 Копировать', 1500);
+                copyBtn.textContent = '✓';
+                setTimeout(() => copyBtn.textContent = '📋', 1500);
             }).catch(() => {
-                // Fallback
-                urlDisplay.select?.();
-                document.execCommand?.('copy');
-                copyBtn.textContent = '✓ Скопировано';
-                setTimeout(() => copyBtn.textContent = '📋 Копировать', 1500);
+                copyBtn.textContent = '✓';
+                setTimeout(() => copyBtn.textContent = '📋', 1500);
             });
         });
 
@@ -240,18 +337,20 @@
             if (currentUrl) window.open(currentUrl, '_blank');
         });
 
-        // Загружаем URL из URL-параметра при загрузке страницы
+        // Автозагрузка из URL-параметра
         const params = new URLSearchParams(window.location.search);
         const paramUrl = params.get('url');
         if (paramUrl) {
             try {
                 const decoded = decodeURIComponent(paramUrl);
                 urlInput.value = decoded;
-                loadVideo(decoded);
-            } catch (e) {
-                // Пробуем без декодирования
+                if (/\.(mp4|webm|m3u8|m4v|mpd)(\?|$)/i.test(decoded)) {
+                    loadVideo(decoded);
+                } else {
+                    extractFromPage(decoded);
+                }
+            } catch {
                 urlInput.value = paramUrl;
-                loadVideo(paramUrl);
             }
         }
     </script>
