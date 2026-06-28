@@ -102,6 +102,13 @@
             color: #555;
             text-align: center;
             padding: 20px;
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
         }
         #placeholder .icon { font-size: 48px; margin-bottom: 12px; }
         #placeholder .hint { color: #666; font-size: 13px; margin-top: 8px; }
@@ -139,6 +146,8 @@
     <div id="error-bar"></div>
     <div id="video-area">
         <div id="video-wrap">
+            <!-- СТАТИЧЕСКИЙ VIDEO для VOT — он существует сразу при загрузке страницы -->
+            <video id="player-video" controls playsinline webkit-playsinline controlslist="nodownload" style="display:none;"></video>
             <div id="placeholder">
                 <div class="icon">🎬</div>
                 <div>Вставьте ссылку на видео или страницу</div>
@@ -158,6 +167,7 @@
         const openDirectBtn = document.getElementById('openDirectBtn');
         const errorBar = document.getElementById('error-bar');
         const extractStatus = document.getElementById('extract-status');
+        const video = document.getElementById('player-video');
 
         let currentUrl = '';
 
@@ -180,33 +190,21 @@
             urlDisplay.textContent = url;
             openDirectBtn.style.display = 'block';
             placeholder.style.display = 'none';
-
-            let video = document.getElementById('player-video');
-            if (video) video.remove();
-
-            video = document.createElement('video');
-            video.id = 'player-video';
-            video.controls = true;
-            video.playsInline = true;
-            video.setAttribute('playsinline', '');
-            video.setAttribute('webkit-playsinline', '');
-            video.controlsList = 'nodownload';
+            video.style.display = 'block';
 
             video.addEventListener('error', () => {
                 const err = video.error;
                 const messages = { 1: 'Загрузка прервана', 2: 'Ошибка сети', 3: 'Ошибка декодирования', 4: 'Формат не поддерживается' };
                 showError(messages[err?.code] || 'Ошибка загрузки (код: ' + (err?.code || '?') + ')');
-            });
+            }, { once: true });
 
             video.src = url;
-            videoWrap.appendChild(video);
             video.play().catch(() => {});
         }
 
         async function extractFromPage(pageUrl) {
             showExtract('🔍 Извлекаю видео со страницы...');
             try {
-                // Пробуем загрузить через CORS-прокси, если не получится — напрямую
                 const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(pageUrl);
                 let response;
                 try {
@@ -218,20 +216,13 @@
                 const html = await response.text();
                 
                 const found = [];
-                
-                // 1. og:video / og:video:url
                 const ogRegex = /<meta[^>]+property=["']og:video(?::url|:secure_url)?["'][^>]+content=["']([^"']+)["']/gi;
                 let match;
-                while ((match = ogRegex.exec(html)) !== null) {
-                    found.push(match[1]);
-                }
-                // Обратный вариант (content перед property)
-                const ogRegex2 = /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:video(?::url|:secure_url)?["']/gi;
-                while ((match = ogRegex2.exec(html)) !== null) {
-                    found.push(match[1]);
-                }
+                while ((match = ogRegex.exec(html)) !== null) found.push(match[1]);
                 
-                // 2. JSON-LD contentUrl
+                const ogRegex2 = /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:video(?::url|:secure_url)?["']/gi;
+                while ((match = ogRegex2.exec(html)) !== null) found.push(match[1]);
+                
                 const jsonLdRegex = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
                 while ((match = jsonLdRegex.exec(html)) !== null) {
                     try {
@@ -247,17 +238,9 @@
                     } catch {}
                 }
                 
-                // 3. Прямые ссылки на mp4/m3u8/webm в HTML/JS
                 const directRegex = /(https?:\/\/[^"'\s<>]+\.(mp4|m3u8|webm)(\?[^"'\s<>]*)?)/gi;
-                while ((match = directRegex.exec(html)) !== null) {
-                    found.push(match[1]);
-                }
+                while ((match = directRegex.exec(html)) !== null) found.push(match[1]);
                 
-                // 4. Twitter player:stream
-                const twRegex = /<meta[^>]+name=["']twitter:player:stream["'][^>]+content=["']([^"']+)["']/gi;
-                while ((match = twRegex.exec(html)) !== null) found.push(match[1]);
-                
-                // Уникализируем и фильтруем
                 const unique = [...new Set(found)].filter(u => u && !u.startsWith('data:') && u.length < 1000);
                 
                 if (unique.length === 0) {
@@ -266,13 +249,11 @@
                     return;
                 }
                 
-                // Показываем первую ссылку и даём выбор, если их несколько
                 if (unique.length === 1) {
                     urlInput.value = unique[0];
                     loadVideo(unique[0]);
                     showExtract('✅ Найдено 1 видео');
                 } else {
-                    // Создаём выпадающий список
                     showExtract('✅ Найдено ' + unique.length + ' видео. Выберите:');
                     const select = document.createElement('select');
                     select.style.cssText = 'margin:4px 12px;padding:6px;background:#2a2a3e;color:#fff;border:1px solid #444;border-radius:6px;width:calc(100% - 24px);font-size:12px;';
@@ -302,11 +283,9 @@
             const url = urlInput.value.trim();
             if (!url) { showError('Введите ссылку'); return; }
             
-            // Если это ссылка на сам видеофайл — грузим напрямую
             if (/\.(mp4|webm|m3u8|m4v|mpd)(\?|$)/i.test(url)) {
                 loadVideo(url);
             } else {
-                // Иначе пробуем извлечь
                 extractFromPage(url);
             }
             const newUrl = new URL(window.location.href);
@@ -337,7 +316,6 @@
             if (currentUrl) window.open(currentUrl, '_blank');
         });
 
-        // Автозагрузка из URL-параметра
         const params = new URLSearchParams(window.location.search);
         const paramUrl = params.get('url');
         if (paramUrl) {
